@@ -6,6 +6,7 @@
 package chisel3.util
 
 import chisel3._
+import chisel3.experimental.prefix
 
 /** A [[Bundle]] that adds a `valid` bit to some data. This indicates that the user expects a "valid" interface between
   * a producer and a consumer. Here, the producer asserts the `valid` bit when data on the `bits` line contains valid
@@ -35,12 +36,6 @@ class Valid[+T <: Data](gen: T) extends Bundle {
     * @return a Chisel [[Bool]] true if `valid` is asserted
     */
   def fire: Bool = valid
-
-  @deprecated(
-    "Calling this function with an empty argument list is invalid in Scala 3. Use the form without parentheses instead",
-    "Chisel 3.5"
-  )
-  def fire(dummy: Int = 0): Bool = valid
 }
 
 /** Factory for generating "valid" interfaces. A "valid" interface is a data-communicating interface between a producer
@@ -54,8 +49,7 @@ class Valid[+T <: Data](gen: T) extends Bundle {
   *   }
   * }}}
   *
-  * To convert this to a "valid" interface, you wrap it with a call to the [[Valid$.apply `Valid` companion object's
-  * apply method]]:
+  * To convert this to a `valid` interface, you wrap it with a call to the `Valid` companion object's apply method:
   * {{{
   *   val bar = Valid(new MyBundle)
   * }}}
@@ -68,7 +62,8 @@ class Valid[+T <: Data](gen: T) extends Bundle {
   *   }
   * }}}
   *
-  * In addition to adding the `valid` bit, a [[Valid.fire]] method is also added that returns the `valid` bit. This
+  * In addition to adding the `valid` bit, a `Valid.fire` method is also added that returns the `valid` bit. This
+  *
   * provides a similarly named interface to [[DecoupledIO]]'s fire.
   *
   * @see [[Decoupled$ DecoupledIO Factory]]
@@ -123,14 +118,12 @@ object Pipe {
       out.valid := enqValid
       out.bits := enqBits
       out
-    } else {
-      val v = RegNext(enqValid, false.B)
-      val b = RegEnable(enqBits, enqValid)
-      val out = apply(v, b, latency - 1)(compileOptions)
-
-      TransitName.withSuffix("Pipe_valid")(out, v)
-      TransitName.withSuffix("Pipe_bits")(out, b)
-    }
+    } else
+      prefix("pipe") {
+        val v = RegNext(enqValid, false.B)
+        val b = RegEnable(enqBits, enqValid)
+        apply(v, b, latency - 1)(compileOptions)
+      }
   }
 
   /** Generate a one-stage pipe from an explicit valid bit and some data

@@ -1,10 +1,9 @@
 package chisel3.experimental
 
 import chisel3.internal.HasId
-import chisel3.{Aggregate, Data, Element, Module}
+import chisel3.{Aggregate, Data, Element, RawModule}
 import firrtl.AnnotationSeq
 import firrtl.annotations.{Annotation, CompleteTarget, SingleTargetAnnotation}
-import firrtl.transforms.DontTouchAllTargets
 
 /** The util that records the reference map from original [[Data]]/[[Module]] annotated in Chisel and final FIRRTL.
   * @example
@@ -22,23 +21,23 @@ import firrtl.transforms.DontTouchAllTargets
 object Trace {
 
   /** Trace a Instance name. */
-  def traceName(x: Module): Unit = {
+  def traceName(x: RawModule): Unit = {
     annotate(new ChiselAnnotation {
-      def toFirrtl: Annotation = TraceNameAnnotation(x.toAbsoluteTarget, x.toAbsoluteTarget)
+      def toFirrtl: Annotation = TraceAnnotation(x.toAbsoluteTarget, x.toAbsoluteTarget)
     })
   }
 
-  /** Trace a Data name. */
+  /** Trace a Data name. This does NOT add "don't touch" semantics to the traced data. If you want this behavior, use an explicit [[chisel3.dontTouch]]. */
   def traceName(x: Data): Unit = {
     x match {
       case aggregate: Aggregate =>
         annotate(new ChiselAnnotation {
-          def toFirrtl: Annotation = TraceNameAnnotation(aggregate.toAbsoluteTarget, aggregate.toAbsoluteTarget)
+          def toFirrtl: Annotation = TraceAnnotation(aggregate.toAbsoluteTarget, aggregate.toAbsoluteTarget)
         })
-        aggregate.getElements.foreach(traceName)
+        aggregate.elementsIterator.foreach(traceName)
       case element: Element =>
         annotate(new ChiselAnnotation {
-          def toFirrtl: Annotation = TraceNameAnnotation(element.toAbsoluteTarget, element.toAbsoluteTarget)
+          def toFirrtl: Annotation = TraceAnnotation(element.toAbsoluteTarget, element.toAbsoluteTarget)
         })
     }
   }
@@ -48,13 +47,12 @@ object Trace {
     * @param target target that should be renamed by [[firrtl.RenameMap]] in the firrtl transforms.
     * @param chiselTarget original annotated target in Chisel, which should not be changed or renamed in FIRRTL.
     */
-  private case class TraceNameAnnotation[T <: CompleteTarget](target: T, chiselTarget: T)
-      extends SingleTargetAnnotation[T]
-      with DontTouchAllTargets {
+  private case class TraceAnnotation[T <: CompleteTarget](target: T, chiselTarget: T)
+      extends SingleTargetAnnotation[T] {
     def duplicate(n: T): Annotation = this.copy(target = n)
   }
 
-  /** Get [[CompleteTarget]] of the target `x` for `annos`.
+  /** Get `CompleteTarget` of the target `x` for `annos`.
     * This API can be used to find the final reference to a signal or module which is marked by `traceName`
     */
   def finalTarget(annos: AnnotationSeq)(x: HasId): Seq[CompleteTarget] = finalTargetMap(annos)
@@ -64,6 +62,6 @@ object Trace {
     * This API can be used to gather all final reference to the signal or module which is marked by `traceName`
     */
   def finalTargetMap(annos: AnnotationSeq): Map[CompleteTarget, Seq[CompleteTarget]] = annos.collect {
-    case TraceNameAnnotation(t, chiselTarget) => chiselTarget -> t
+    case TraceAnnotation(t, chiselTarget) => chiselTarget -> t
   }.groupBy(_._1).map { case (k, v) => k -> v.map(_._2) }
 }

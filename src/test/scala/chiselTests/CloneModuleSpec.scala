@@ -3,9 +3,9 @@
 package chiselTests
 
 import chisel3._
-import chisel3.stage.ChiselStage
+import circt.stage.ChiselStage
 import chisel3.util.{log2Ceil, Decoupled, DeqIO, EnqIO, Queue, QueueIO}
-import chisel3.experimental.{CloneModuleAsRecord, IO}
+import chisel3.experimental.CloneModuleAsRecord
 import chisel3.testers.BasicTester
 
 class MultiIOQueue[T <: Data](gen: T, val entries: Int) extends Module {
@@ -97,13 +97,13 @@ class CloneModuleSpec extends ChiselPropSpec {
     assert(c.modules.length == 2)
   }
 
-  property("Clone of MultiIOModule should simulate correctly") {
+  property("Clone of Module should simulate correctly") {
     forAll(xVals) { (x: Int) =>
       assertTesterPasses { new QueueCloneTester(x, multiIO = true) }
     }
   }
 
-  property("Clones of MultiIOModules should share the same module") {
+  property("Clones of Modules should share the same module") {
     val c = ChiselStage.convert(new QueueClone(multiIO = true))
     assert(c.modules.length == 3)
   }
